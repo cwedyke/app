@@ -1,0 +1,207 @@
+﻿@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<body>
+    <br />
+    <br />
+    <div class="row">
+        <div class="col-md-2">
+            <input id="btnViewAll" class="btn btn-primary" type="button" value="View All" style="width:100px" />
+            <br /><br />
+            <input id="btnViewRecent" class="btn btn-success" type="button" value="View 5 Days" style="width:100px" />
+            <br /><br />
+            <input id="btnViewFav" class="btn btn-success" type="button" value="View Favs" style="width:100px" />
+        </div>
+        <div class="col-md-10">
+            <table id="resultsTable" class="table table-striped table-bordered" cellspacing="0" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Rent Zest</th>
+                        <th>Zestimate</th>
+                        <th>Asking Price</th>
+                        <th>Chalc</th>
+                        <th>ZestMinusCost</th>
+                        <th>Date Updated</th>
+                        <th>Price Drop</th>
+                        <th>Favorite</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+</body>
+
+@section scripts {
+
+    <script>
+        $(document).ready(function () {
+
+
+            $('#resultsTable').DataTable({
+                "order": [[6, "desc"]],
+                "pageLength": 10,
+                columns: [
+                    {
+                        "data": "address",
+                        "render": function (data, type, row) {
+                            if (row['urlHome'] != null)
+                                return "<a href='" + row['urlHome'] + "' target='_blank'>" + data + '</a>';
+                            else
+                                return data;
+                        },
+                        "targets": 0
+                    },
+                    { data: "rentZestimate" },
+                    { data: "zestimate" },
+                    { data: "askingPrice" },
+                    { data: "chalculate" },
+                    { data: "zestimateMinusCostValue" },
+                    {
+                        "data": "updatedOn",
+                        "render": function (data, type, row) {
+                            var date = new Date(Date.parse(data));
+
+                            return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + (date.getUTCDate()) + " " + date.getHours() + ":" + date.getMinutes();
+                        }
+                        //,
+                        //"targets": 6
+                    },
+                    { data: "priceDropOn" },
+                    {
+                        "render": function (data, type, row) {
+                            return "<input type='button' class='btnDelete_resultsTable btn btn-danger btn-sm ' value='Delete Entry'></input>";
+                        }
+                    },
+                    {
+                        "render": function (data, type, row) {
+                            return "<input type='button' class='btnFav_resultsTable btn btn-success btn-sm ' value='Mark Favorite'></input>";
+                        }
+                    }
+                ],
+                fnCreatedRow: function (nRow, aData, iDataIndex) {
+                    $(nRow).attr('zpid', aData['zpid']);
+                }
+            });
+
+            $('#resultsTable').on('click', '.btnDelete_resultsTable', function () {
+                var that = $(this),
+                    $zpid = that.closest('tr').attr('zpid');
+
+                $.ajax({
+                    type: 'DELETE',
+                    url: '/api/Zillow/' + $zpid
+                }).done(function () {
+                    // remove row from table.
+                    var table = $('#resultsTable').DataTable();
+                    table
+                        .row(that.parents('tr'))
+                        .remove()
+                        .draw();
+                });
+
+            });
+
+            $('#resultsTable').on('click', '.btnFav_resultsTable', function () {
+                var that = $(this),
+                    $zpid = that.closest('tr').attr('zpid');
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/api/zillow/setfavorite/' + $zpid
+
+                }).done(function () {
+                    // notify user of success
+                    that.closest('tr')
+                        .delay(100)
+                        .fadeOut(800)
+                        .fadeIn(800);
+                });
+
+            });
+
+        });
+
+        $(function () {
+            $('#btnViewAll').on('click', function () {
+                $.ajax({
+                    type: 'Get',
+                    url: '/api/Zillow',
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json'
+                }).done(function (data) {
+                    if (data != null) {
+                        if ($.fn.dataTable.isDataTable('#resultsTable')) { // extra verification that table has been init'd.
+
+                            var table = $('#resultsTable').DataTable();
+                            table.clear();
+                            table.rows.add(data).draw();
+                        }
+                    }
+                    else {
+                        var table = $('#resultsTable').DataTable();
+                        table.clear().draw();
+                    }
+
+                });
+            });
+
+        });
+
+        $(function () {
+            $('#btnViewRecent').on('click', function () {
+                $.ajax({
+                    type: 'Get',
+                    url: '/api/zillow/getrecent',
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json'
+                }).done(function (data) {
+                    if (data != null) {
+                        if ($.fn.dataTable.isDataTable('#resultsTable')) { // extra verification that table has been init'd.
+
+                            var table = $('#resultsTable').DataTable();
+                            table.clear();
+                            table.rows.add(data).draw();
+                        }
+                    }
+                    else {
+                        var table = $('#resultsTable').DataTable();
+                        table.clear().draw();
+                    }
+
+                });
+            });
+
+        });
+
+        $(function () {
+            $('#btnViewFav').on('click', function () {
+                $.ajax({
+                    type: 'Get',
+                    url: '/api/zillow/getfavorites',
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json'
+                }).done(function (data) {
+                    if (data != null) {
+                        if ($.fn.dataTable.isDataTable('#resultsTable')) { // extra verification that table has been init'd.
+
+                            var table = $('#resultsTable').DataTable();
+                            table.clear();
+                            table.rows.add(data).draw();
+                        }
+                    }
+                    else {
+                        var table = $('#resultsTable').DataTable();
+                        table.clear().draw();
+                    }
+
+                });
+            });
+
+        });
+
+    </script>
+
+}
