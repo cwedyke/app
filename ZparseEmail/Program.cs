@@ -30,12 +30,13 @@ namespace ZparseEmail
             // Define parameters of request.
             UsersResource.LabelsResource.ListRequest request = service.Users.Labels.List("me");
 
-            var msgs = ListMessages(service, "me", "from:no-reply@mail.zillow.com");
+            var msgs = ListMessages(service, "me", "from:home-updates@mail.zillow.com");
 
             Console.WriteLine(string.Format("Processing {0} emails.", msgs.Count));
-            foreach (var m in msgs)
+
+            for (int i = msgs.Count - 1; i > 0; --i) //processing in reverse so newest are done last.
             {
-                var emailBodyString = DecodeEmailBody(GetMessage(service, "me", m.Id));
+                var emailBodyString = DecodeEmailBody(GetMessage(service, "me", msgs[i].Id));
 
                 try
                 {
@@ -59,8 +60,9 @@ namespace ZparseEmail
                 Console.Write("|");
 
                 // Finally clean up email
-                DeleteMessage(service, "me", m.Id);
+                DeleteMessage(service, "me", msgs[i].Id);
             }
+
             Console.WriteLine();
             Console.WriteLine("Complete. (Press any key to close)");
             Console.ReadKey();
@@ -189,32 +191,29 @@ namespace ZparseEmail
             var entity = new ZillowEntityModel();
             string askingPrice = string.Empty;
             DateTime? priceDropOn = null;
+            
+            value = Regex.Replace(value, @"\s\s+", " "); // remove all extra whitespace
 
-            // remove all extra whitespace
-            value = Regex.Replace(value, @"\s\s+", " ");
 
-
-            int end = value.ToLower().IndexOf(". your '");
-            int start = value.ToLower().IndexOf("new listing:");
-            if (start == -1)
+            int endAddressIndex = value.ToLower().IndexOf(". your '");
+            int startAddressIndex = value.ToLower().IndexOf("new listing:");
+            if (startAddressIndex == -1)
             {
-                start = value.ToLower().IndexOf("price drop:");
+                startAddressIndex = value.ToLower().IndexOf("price drop:");
                 priceDropOn = DateTime.Now.Date;
+
+                askingPrice = GetAskingPrice("spanclass3D\"dummy\"style3D\"font-weight:normal;font-size:20px;line-height:30px;font-family:Open-sans,Arial;\">$", "</span>", value);
             }
             else
             {
-                // if this is a 'new listing' get askingprice.
-                int startIndex = value.IndexOf("$");
-                int endIndex = value.Substring(startIndex).IndexOf(".");
-
-                askingPrice = value.Substring(startIndex + 1, endIndex - 1).Trim().Replace(",", "");
+                askingPrice = GetAskingPrice("$", ".", value);
             }
 
-            if (start != -1 && end != -1)
+            if (startAddressIndex != -1 && endAddressIndex != -1)
             {
-                int length = (end - 12) - start;
+                int length = (endAddressIndex - 12) - startAddressIndex;
 
-                string address = value.Substring(start + 12, length).Trim();
+                string address = value.Substring(startAddressIndex + 12, length).Trim();
 
                 //now that i have address I need to seperate street from city,st
                 int endOfStreetComma = address.IndexOf(',');
@@ -288,6 +287,17 @@ namespace ZparseEmail
             }
 
             return entity;
+        }
+
+        private static string GetAskingPrice(string startIndexString, string endIndexString, string value)
+        {
+            value = Regex.Replace(value, @" ", ""); //remove all spaces
+            value = Regex.Replace(value, @"=", ""); //remove all equals
+
+            int startIndex = value.IndexOf(startIndexString) + startIndexString.Length;
+            int endIndex = value.Substring(startIndex).IndexOf(endIndexString);
+
+            return value.Substring(startIndex, endIndex).Trim().Replace(",", "");
         }
 
         public static void UpsertZillowEntity(ZillowEntityModel z)
